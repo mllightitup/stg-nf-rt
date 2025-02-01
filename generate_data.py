@@ -10,7 +10,7 @@ tracked_person = {}
 for i, frame in enumerate(results):
     for track_id, keypoint, box, score in zip(
         frame.boxes.id.int().cpu().tolist(),
-        frame.keypoints.data.cpu().reshape(-1, 51).tolist(),
+        frame.keypoints.data.cpu().reshape(-1, 51).tolist(), # .reshape(-1, 51) нужен был для подгонки к формату STG-NF
         frame.boxes.xywh.cpu().tolist(),
         frame.boxes.conf.cpu().tolist()
     ):
