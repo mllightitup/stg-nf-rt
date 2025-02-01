@@ -3,7 +3,7 @@ import json
 
 model = YOLO("yolo11n-pose.pt")
 
-results = model.track("crowd.mp4", imgsz=1920, persist=True, classes=[0])
+results = model.track("crowd.mp4", imgsz=1920, persist=True, classes=[0]) # Можно играться с imgsz под свою GPU
 
 tracked_person = {}
 
@@ -21,5 +21,5 @@ for i, frame in enumerate(results):
         }
 
 
-with open('aboba.json', 'w') as json_file:
+with open('08_0044_alphapose_tracked_person.json', 'w') as json_file:
     json.dump(tracked_person, json_file, indent=4)
