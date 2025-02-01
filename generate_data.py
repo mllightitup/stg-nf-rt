@@ -10,7 +10,9 @@ tracked_person = {}
 for i, frame in enumerate(results):
     for track_id, keypoint, box, score in zip(
         frame.boxes.id.int().cpu().tolist(),
-        frame.keypoints.data.cpu().reshape(-1, 51).tolist(), # .reshape(-1, 51) нужен был для подгонки к формату STG-NF
+        frame.keypoints.data.cpu().reshape(-1, 51).tolist(), 
+        # В YOLO по дефолту так: 1 object, 17 keypoints (COCO format), x,y,conf. У STG-NF формат это развернутый список (x,y,conf,x,y,conf,x,y,conf и тд.) 17 * 3 = 51
+        # Следовательно просто делаем .reshape(-1, 51) для подгонки к формату STG-NF 
         frame.boxes.xywh.cpu().tolist(),
         frame.boxes.conf.cpu().tolist()
     ):
