@@ -47,7 +47,7 @@ def get_dataset_scores(scores, metadata, args=None):
         clip_list = os.listdir(per_frame_scores_root)
         clip_list = sorted(fn for fn in clip_list if fn.endswith(".npy"))
 
-    print("Scoring {} clips".format(len(clip_list)))
+    print(f"Scoring {len(clip_list)} clips")
     for clip in tqdm(clip_list):
         clip_gt, clip_score = get_clip_score(
             scores, clip, metadata_np, metadata, per_frame_scores_root, args
@@ -85,7 +85,7 @@ def smooth_scores(scores_arr, sigma=7):
 def get_clip_score(scores, clip, metadata_np, metadata, per_frame_scores_root, args):
     if args.dataset == "UBnormal":
         type, scene_id, clip_id = re.findall(
-            "(abnormal|normal)_scene_(\d+)_scenario(.*)_tracks.*", clip
+            r"(abnormal|normal)_scene_(\d+)_scenario(.*)_tracks.*", clip
         )[0]
         clip_id = type + "_" + clip_id
     else:

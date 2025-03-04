@@ -93,18 +93,14 @@ def init_parser(default_data_dir="data/", default_exp_dir="data/exp_dir"):
         type=str,
         default=default_data_dir,
         metavar="DATA_DIR",
-        help="Path to directory holding .npy and .pkl files (default: {})".format(
-            default_data_dir
-        ),
+        help=f"Path to directory holding .npy and .pkl files (default: {default_data_dir})",
     )
     parser.add_argument(
         "--exp_dir",
         type=str,
         default=default_exp_dir,
         metavar="EXP_DIR",
-        help="Path to the directory where models will be saved (default: {})".format(
-            default_exp_dir
-        ),
+        help=f"Path to the directory where models will be saved (default: {default_exp_dir})",
     )
     parser.add_argument(
         "--num_workers",
@@ -288,7 +284,7 @@ def create_exp_dirs(experiment_dir, dirmap=""):
         print("Experiment directories created")
         return experiment_dir
     except Exception as err:
-        print("Experiment directories creation Failed, error {}".format(err))
+        print(f"Experiment directories creation Failed, error {err}")
         exit(-1)
 
 

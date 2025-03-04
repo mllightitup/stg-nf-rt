@@ -150,9 +150,7 @@ class ActNorm2d(_ActNorm):
         assert len(input.size()) == 4
         assert input.size(1) == self.num_features, (
             "[ActNorm]: input should be in shape as `BCKV`,"
-            " channels should be {} rather than {}".format(
-                self.num_features, input.size()
-            )
+            f" channels should be {self.num_features} rather than {input.size()}"
         )
 
 

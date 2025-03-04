@@ -113,12 +113,12 @@ def csv_log_dump(args, log_dict):
         args.headless,
     ]
 
-    res_str = "_{}".format(int(10 * log_dict["dp_auc"]))
+    res_str = f"_{int(10 * log_dict["dp_auc"])}"
     log_template = len(param_arr) * "{}, " + "\n"
     log_str = log_template.format(*param_arr)
     debug_str = "_debug" if args.debug else ""
     csv_path = os.path.join(
-        args.ckpt_dir, "{}{}{}_log_dump.csv".format(date_time, debug_str, res_str)
+        args.ckpt_dir, f"{date_time}{debug_str}{res_str}_log_dump.csv"
     )
     with open(csv_path, "w") as csv_file:
         csv_file.write(log_str)
@@ -128,5 +128,5 @@ def calc_num_of_params(net):
     num_params = 0
     for param in net.parameters():
         num_params += param.numel()
-    print("Number of params in net: {}K".format(num_params / 1e3))
+    print(f"Number of params in net: {num_params / 1e3}K")
     return num_params / 1e3

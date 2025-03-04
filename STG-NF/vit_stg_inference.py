@@ -40,8 +40,7 @@ else:
 args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
-args.checkpoint = r"C:\Users\Grishin\PycharmProjects\stg-nf-rt\STG-NF\data\exp_dir\ShanghaiTech\Mar04_1336\Mar04_1337__checkpoint.pth.tar"
-# args.checkpoint = r"checkpoints/ShanghaiTech_85_9.tar"
+args.checkpoint = r"checkpoints\Mar04_1337__checkpoint.pth.tar"  # trained on rtdert + vitpose based datasate layout
 
 pretrained = vars(args).get("checkpoint", None)
 
@@ -75,6 +74,7 @@ ORDER = torch.tensor(
     device=device,
 )
 NORM_FACTOR = torch.tensor((856, 480, 1), dtype=torch.float32, device=device)
+# (856, 480) - это разрешение видео
 
 
 def keypoints17_to_coco18(kps17):

@@ -33,7 +33,7 @@ class PoseSegDataset(Dataset):
         return_global=True,
         evaluate=False,
         abnormal_train_path=None,
-        **dataset_args
+        **dataset_args,
     ):
         super().__init__()
         self.args = dataset_args
@@ -71,7 +71,7 @@ class PoseSegDataset(Dataset):
             num_clips=num_clips,
             ret_keys=True,
             ret_global_data=return_global,
-            **dataset_args
+            **dataset_args,
         )
         self.segs_meta = np.array(self.segs_meta)
         if abnormal_train_path is not None:
@@ -87,7 +87,7 @@ class PoseSegDataset(Dataset):
                 num_clips=num_clips,
                 ret_keys=True,
                 ret_global_data=return_global,
-                **dataset_args
+                **dataset_args,
             )
             self.segs_meta_ab = np.array(self.segs_meta_ab)
             ab_labels = get_ab_labels(
@@ -100,11 +100,7 @@ class PoseSegDataset(Dataset):
             num_abnormal_samp = (ab_labels == -1).sum()
             total_num_normal_samp = num_normal_samp + (ab_labels == 1).sum()
             print(
-                "Num of abnormal sapmles: {}  | Num of normal samples: {}  |  Precent: {}".format(
-                    num_abnormal_samp,
-                    total_num_normal_samp,
-                    num_abnormal_samp / total_num_normal_samp,
-                )
+                f"Num of abnormal sapmles: {num_abnormal_samp}  | Num of normal samples: {total_num_normal_samp}  |  Precent: {num_abnormal_samp / total_num_normal_samp}"
             )
             self.labels = np.concatenate(
                 (np.ones(num_normal_samp), ab_labels), axis=0
@@ -174,7 +170,7 @@ class PoseSegDataset(Dataset):
 def get_dataset_and_loader(args, trans_list, only_test=False):
     loader_args = {
         "batch_size": args.batch_size,
-        "num_workers": args.num_workers,
+        # "num_workers": args.num_workers, На моей системе не проходила загрузка даталоадера + потребляло очень много RAM
         "pin_memory": True,
     }
     dataset_args = {
@@ -209,7 +205,7 @@ def get_dataset_and_loader(args, trans_list, only_test=False):
             normalize_pose_segs=normalize_pose_segs,
             evaluate=evaluate,
             abnormal_train_path=abnormal_train_path,
-            **dataset_args
+            **dataset_args,
         )
         loader[split] = DataLoader(
             dataset[split], **loader_args, shuffle=(split == "train")
@@ -233,7 +229,7 @@ def gen_dataset(
     kp18_format=True,
     ret_keys=False,
     ret_global_data=True,
-    **dataset_args
+    **dataset_args,
 ):
     segs_data_np = []
     segs_score_np = []
@@ -254,7 +250,7 @@ def gen_dataset(
     for person_dict_fn in tqdm(json_list):
         if dataset == "UBnormal":
             type, scene_id, clip_id = re.findall(
-                "(abnormal|normal)_scene_(\d+)_scenario(.*)_alphapose_.*",
+                r"(abnormal|normal)_scene_(\d+)_scenario(.*)_alphapose_.*",
                 person_dict_fn,
             )[0]
             clip_id = type + "_" + clip_id

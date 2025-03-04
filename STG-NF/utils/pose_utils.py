@@ -6,7 +6,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-plt.style.use("seaborn-ticks")
+# plt.style.use("seaborn-ticks")
 
 
 def get_ab_labels(global_data_np_ab, segs_meta_ab, path_to_vid_dir="", segs_root=""):
@@ -20,7 +20,7 @@ def get_ab_labels(global_data_np_ab, segs_meta_ab, path_to_vid_dir="", segs_root
     labels = np.ones_like(global_data_np_ab)
     for clip in tqdm(clip_list):
         type, scene_id, clip_id = re.findall(
-            "(abnormal|normal)_scene_(\d+)_scenario(.*)_annotations.*", clip
+            r"(abnormal|normal)_scene_(\d+)_scenario(.*)_annotations.*", clip
         )[0]
         if type == "normal":
             continue
@@ -29,7 +29,7 @@ def get_ab_labels(global_data_np_ab, segs_meta_ab, path_to_vid_dir="", segs_root
             (segs_meta_ab[:, 1] == clip_id) & (segs_meta_ab[:, 0] == scene_id)
         )[0]
         clip_metadata = segs_meta_ab[clip_metadata_inds]
-        clip_res_fn = os.path.join(path_to_vid_dir, "Scene{}".format(scene_id), clip)
+        clip_res_fn = os.path.join(path_to_vid_dir, f"Scene{scene_id}", clip)
         filelist = sorted(os.listdir(clip_res_fn))
         clip_gt_lst = [
             np.array(Image.open(os.path.join(clip_res_fn, fname)).convert("L"))
@@ -103,9 +103,9 @@ def gen_clip_seg_data_np(
             single_pose_dict2np(clip_dict, idx)
         )
         if dataset == "UBnormal":
-            key = "{:02d}_{}_{:02d}".format(int(scene_id), clip_id, int(idx))
+            key = f"{int(scene_id):02d}_{clip_id}_{int(idx):02d}"
         else:
-            key = "{:02d}_{:04d}_{:02d}".format(int(scene_id), int(clip_id), int(idx))
+            key = f"{int(scene_id):02d}_{int(clip_id):04d}_{ int(idx):02d}"
         person_keys[key] = sing_pose_keys
         curr_pose_segs_np, curr_pose_segs_meta, curr_pose_score_np = (
             split_pose_to_segments(
@@ -171,7 +171,10 @@ def single_pose_dict2np(person_dict, idx):
     for key in single_person_dict_keys:
         curr_pose_np = np.array(single_person[key]["keypoints"]).reshape(-1, 3)
         sing_pose_np.append(curr_pose_np)
-        sing_scores_np.append(single_person[key]["scores"])
+        try:
+            sing_scores_np.append(single_person[key]["score"])
+        except KeyError:
+            sing_scores_np.append(single_person[key]["scores"])
     sing_pose_np = np.stack(sing_pose_np, axis=0)
     sing_scores_np = np.stack(sing_scores_np, axis=0)
     return sing_pose_np, sing_pose_meta, single_person_dict_keys, sing_scores_np

@@ -1,6 +1,5 @@
-"""
-Train\Test helper, based on awesome previous work by https://github.com/amirmk89/gepc
-"""
+# Train\Test helper, based on awesome previous work by https://github.com/amirmk89/gepc
+
 
 import os
 import time
@@ -113,16 +112,10 @@ class Trainer:
             self.model.set_actnorm_init()
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             print(
-                "Checkpoint loaded successfully from '{}' at (epoch {})\n".format(
-                    filename, checkpoint["epoch"]
-                )
+                f"Checkpoint loaded successfully from '{filename}' at (epoch {checkpoint["epoch"]})\n"
             )
         except FileNotFoundError:
-            print(
-                "No checkpoint exists from '{}'. Skipping...\n".format(
-                    self.args.ckpt_dir
-                )
-            )
+            print(f"No checkpoint exists from '{self.args.ckpt_dir}'. Skipping...\n")
 
     def train(self, log_writer=None, clip=100):
         time_str = time.strftime("%b%d_%H%M_")
@@ -135,7 +128,7 @@ class Trainer:
         for epoch in range(start_epoch, num_epochs):
             if key_break:
                 break
-            print("Starting Epoch {} / {}".format(epoch + 1, num_epochs))
+            print(f"Starting Epoch {epoch + 1} / {num_epochs}")
             pbar = tqdm(self.train_loader)
             for itern, data_arr in enumerate(pbar):
                 try:
@@ -159,12 +152,8 @@ class Trainer:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), clip)
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-                    pbar.set_description("Loss: {}".format(losses.item()))
-                    log_writer.add_scalar(
-                        "NLL Loss",
-                        losses.item(),
-                        epoch * len(self.train_loader) + itern,
-                    )
+                    pbar.set_description(f"Loss: {losses.item()}")
+                    # log_writer.add_scalar("NLL Loss", losses.item(), epoch * len(self.train_loader) + itern,)
 
                 except KeyboardInterrupt:
                     print("Keyboard Interrupted. Save results? [yes/no]")
@@ -177,7 +166,7 @@ class Trainer:
 
             self.save_checkpoint(epoch, filename=checkpoint_filename)
             new_lr = self.adjust_lr(epoch)
-            print("Checkpoint Saved. New LR: {0:.3e}".format(new_lr))
+            print(f"Checkpoint Saved. New LR: {new_lr:.3e}")
 
     def test(self):
         self.model.eval()

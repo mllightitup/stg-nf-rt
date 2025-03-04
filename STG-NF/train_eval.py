@@ -1,7 +1,9 @@
 import random
 import numpy as np
 import torch
-from torch.utils.tensorboard import SummaryWriter
+
+# from torch.utils.tensorboard import SummaryWriter
+
 from models.STG_NF.model_pose import STG_NF
 from models.training import Trainer
 from utils.data_utils import trans_list
@@ -29,7 +31,14 @@ def main():
         np.random.seed(0)
 
     args, model_args = init_sub_args(args)
+
     args.ckpt_dir = create_exp_dirs(args.exp_dir, dirmap=args.dataset)
+
+    args.dataset = "ShanghaiTech"
+
+    args.checkpoint = (
+        r"data/exp_dir/ShanghaiTech/Mar04_2343/Mar04_2345__checkpoint.pth.tar"
+    )
 
     pretrained = vars(args).get("checkpoint", None)
     dataset, loader = get_dataset_and_loader(
@@ -52,8 +61,9 @@ def main():
     if pretrained:
         trainer.load_checkpoint(pretrained)
     else:
-        writer = SummaryWriter()
-        trainer.train(log_writer=writer)
+        # writer = SummaryWriter()
+        # trainer.train(log_writer=writer)
+        trainer.train()
         dump_args(args, args.ckpt_dir)
 
     normality_scores = trainer.test()
@@ -61,11 +71,7 @@ def main():
 
     # Logging and recording results
     print("\n-------------------------------------------------------")
-    print(
-        "\033[92m Done with {}% AuC for {} samples\033[0m".format(
-            auc * 100, scores.shape[0]
-        )
-    )
+    print(f"\033[92m Done with {auc * 100}% AuC for {scores.shape[0]} samples\033[0m")
     print("-------------------------------------------------------\n\n")
 
 
