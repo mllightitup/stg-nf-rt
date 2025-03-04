@@ -107,7 +107,7 @@ class Trainer:
     def load_checkpoint(self, filename):
         filename = filename
         try:
-            checkpoint = torch.load(filename)
+            checkpoint = torch.load(filename, weights_only=False)
             self.start_epoch = checkpoint["epoch"]
             self.model.load_state_dict(checkpoint["state_dict"], strict=False)
             self.model.set_actnorm_init()
@@ -209,3 +209,36 @@ class Trainer:
             "optimizer": self.optimizer.state_dict(),
         }
         return checkpoint_state
+
+
+class InferenceSTG:
+    def __init__(self, args, model):
+        self.model = model
+        self.args = args
+
+    def load_checkpoint(self, filename):
+        try:
+            checkpoint = torch.load(filename, weights_only=False)
+            self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+            self.model.set_actnorm_init()
+            print(f"Чекпоинт загружен успешно: '{filename}'")
+        except FileNotFoundError:
+            print(f"No checkpoint exists from '{self.args.ckpt_dir}'. Skipping...\n")
+
+    def test_real_time(self, data, conf):
+        self.model.eval()
+        self.model.to(self.args.device)
+        probs = torch.empty(0).to(self.args.device)
+
+        score = conf.amin(dim=-1)
+        if self.args.model_confidence:
+            samp = data[0]
+        else:
+            samp = data[:, :2]
+        with torch.no_grad():
+            label = torch.ones(data.shape[0])
+            _, nll = self.model(samp.float(), label=label, score=score)
+        if self.args.model_confidence:
+            nll = nll * score
+        probs = torch.cat((probs, -1 * nll), dim=0)
+        return probs.cpu().detach().numpy().squeeze().copy(order="C")
