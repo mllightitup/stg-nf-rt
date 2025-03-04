@@ -1,6 +1,4 @@
-"""
-STG-NF modules, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
-"""
+# STG-NF modules, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
 
 
 import math
@@ -28,11 +26,13 @@ def split_feature(tensor, type="split", imgs=False):
     C = tensor.size(1)
     if imgs:
         if type == "split":
-            return tensor[:, : C // 2, ...], tensor[:, C // 2:, ...]
+            return tensor[:, : C // 2, ...], tensor[:, C // 2 :, ...]
         elif type == "cross":
             return tensor[:, 0::2, ...], tensor[:, 1::2, ...]
 
     if type == "split":
-        return tensor[:, : C // 2, ...].squeeze(dim=1), tensor[:, C // 2 :, ...].squeeze(dim=1)
+        return tensor[:, : C // 2, ...].squeeze(dim=1), tensor[
+            :, C // 2 :, ...
+        ].squeeze(dim=1)
     elif type == "cross":
         return tensor[:, 0::2, ...].squeeze(dim=1), tensor[:, 1::2, ...].squeeze(dim=1)

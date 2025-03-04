@@ -31,15 +31,24 @@ def main():
     args, model_args = init_sub_args(args)
     args.ckpt_dir = create_exp_dirs(args.exp_dir, dirmap=args.dataset)
 
-    pretrained = vars(args).get('checkpoint', None)
-    dataset, loader = get_dataset_and_loader(args, trans_list=trans_list, only_test=(pretrained is not None))
+    pretrained = vars(args).get("checkpoint", None)
+    dataset, loader = get_dataset_and_loader(
+        args, trans_list=trans_list, only_test=(pretrained is not None)
+    )
 
     model_args = init_model_params(args, dataset)
     model = STG_NF(**model_args)
     num_of_params = calc_num_of_params(model)
-    trainer = Trainer(args, model, loader['train'], loader['test'],
-                      optimizer_f=init_optimizer(args.model_optimizer, lr=args.model_lr),
-                      scheduler_f=init_scheduler(args.model_sched, lr=args.model_lr, epochs=args.epochs))
+    trainer = Trainer(
+        args,
+        model,
+        loader["train"],
+        loader["test"],
+        optimizer_f=init_optimizer(args.model_optimizer, lr=args.model_lr),
+        scheduler_f=init_scheduler(
+            args.model_sched, lr=args.model_lr, epochs=args.epochs
+        ),
+    )
     if pretrained:
         trainer.load_checkpoint(pretrained)
     else:
@@ -52,9 +61,13 @@ def main():
 
     # Logging and recording results
     print("\n-------------------------------------------------------")
-    print("\033[92m Done with {}% AuC for {} samples\033[0m".format(auc * 100, scores.shape[0]))
+    print(
+        "\033[92m Done with {}% AuC for {} samples\033[0m".format(
+            auc * 100, scores.shape[0]
+        )
+    )
     print("-------------------------------------------------------\n\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

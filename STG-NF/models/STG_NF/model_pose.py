@@ -1,6 +1,5 @@
-"""
-STG-NF model, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
-"""
+# STG-NF model, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
+
 
 import math
 import torch
@@ -21,30 +20,43 @@ from models.STG_NF.utils import split_feature
 from models.STG_NF.graph import Graph
 from models.STG_NF.stgcn import st_gcn
 
+
 def nan_throw(tensor, name="tensor"):
     stop = False
-    if ((tensor != tensor).any()):
+    if (tensor != tensor).any():
         print(name + " has nans")
         stop = True
-    if (torch.isinf(tensor).any()):
+    if torch.isinf(tensor).any():
         print(name + " has infs")
         stop = True
     if stop:
         print(name + ": " + str(tensor))
 
 
-def get_stgcn(in_channels, hidden_channels, out_channels,
-              temporal_kernel_size=9, spatial_kernel_size=2, first=False):
+def get_stgcn(
+    in_channels,
+    hidden_channels,
+    out_channels,
+    temporal_kernel_size=9,
+    spatial_kernel_size=2,
+    first=False,
+):
     kernel_size = (temporal_kernel_size, spatial_kernel_size)
     if hidden_channels == 0:
-        block = nn.ModuleList((
-            st_gcn(in_channels, out_channels, kernel_size, 1, residual=(not first)),
-        ))
+        block = nn.ModuleList(
+            (st_gcn(in_channels, out_channels, kernel_size, 1, residual=(not first)),)
+        )
     else:
-        block = nn.ModuleList((
-            st_gcn(in_channels, hidden_channels, kernel_size, 1, residual=(not first)),
-            st_gcn(hidden_channels, out_channels, kernel_size, 1, residual=(not first)),
-        ))
+        block = nn.ModuleList(
+            (
+                st_gcn(
+                    in_channels, hidden_channels, kernel_size, 1, residual=(not first)
+                ),
+                st_gcn(
+                    hidden_channels, out_channels, kernel_size, 1, residual=(not first)
+                ),
+            )
+        )
 
     return block
 
@@ -62,21 +74,21 @@ def get_block(in_channels, out_channels, hidden_channels):
 
 class FlowStep(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            hidden_channels,
-            actnorm_scale,
-            flow_permutation,
-            flow_coupling,
-            LU_decomposed,
-            A=None,
-            temporal_kernel_size=4,
-            edge_importance_weighting=False,
-            last=False,
-            first=False,
-            strategy='uniform',
-            max_hops=8,
-            device='cuda:0'
+        self,
+        in_channels,
+        hidden_channels,
+        actnorm_scale,
+        flow_permutation,
+        flow_coupling,
+        LU_decomposed,
+        A=None,
+        temporal_kernel_size=4,
+        edge_importance_weighting=False,
+        last=False,
+        first=False,
+        strategy="uniform",
+        max_hops=8,
+        device="cuda:0",
     ):
         super().__init__()
         self.device = device
@@ -106,20 +118,28 @@ class FlowStep(nn.Module):
 
         # 3. coupling
         if flow_coupling == "additive":
-            self.block = get_stgcn(in_channels // 2, in_channels // 2, hidden_channels,
-                                   temporal_kernel_size=temporal_kernel_size, spatial_kernel_size=self.A.size(0),
-                                   first=first
-                                   )
+            self.block = get_stgcn(
+                in_channels // 2,
+                in_channels // 2,
+                hidden_channels,
+                temporal_kernel_size=temporal_kernel_size,
+                spatial_kernel_size=self.A.size(0),
+                first=first,
+            )
         elif flow_coupling == "affine":
-            self.block = get_stgcn(in_channels // 2, hidden_channels, in_channels,
-                                   temporal_kernel_size=temporal_kernel_size, spatial_kernel_size=self.A.size(0),
-                                   first=first)
+            self.block = get_stgcn(
+                in_channels // 2,
+                hidden_channels,
+                in_channels,
+                temporal_kernel_size=temporal_kernel_size,
+                spatial_kernel_size=self.A.size(0),
+                first=first,
+            )
 
         if edge_importance_weighting:
-            self.edge_importance = nn.ParameterList([
-                nn.Parameter(torch.ones(self.A.size()))
-                for i in self.block
-            ])
+            self.edge_importance = nn.ParameterList(
+                [nn.Parameter(torch.ones(self.A.size())) for i in self.block]
+            )
         else:
             self.edge_importance = [1] * len(self.block)
 
@@ -155,7 +175,7 @@ class FlowStep(nn.Module):
                 scale = scale.unsqueeze(dim=1)
             if len(shift.shape) == 3:
                 shift = shift.unsqueeze(dim=1)
-            scale = torch.sigmoid(scale + 2.) + 1e-6
+            scale = torch.sigmoid(scale + 2.0) + 1e-6
             z2 = z2 + shift
             z2 = z2 * scale
             logdet = torch.sum(torch.log(scale), dim=[1, 2, 3]) + logdet
@@ -202,20 +222,20 @@ class FlowStep(nn.Module):
 
 class FlowNet(nn.Module):
     def __init__(
-            self,
-            pose_shape,
-            hidden_channels,
-            K,
-            L,
-            actnorm_scale,
-            flow_permutation,
-            flow_coupling,
-            LU_decomposed,
-            edge_importance=False,
-            temporal_kernel_size=None,
-            strategy='uniform',
-            max_hops=8,
-            device='cuda:0',
+        self,
+        pose_shape,
+        hidden_channels,
+        K,
+        L,
+        actnorm_scale,
+        flow_permutation,
+        flow_coupling,
+        LU_decomposed,
+        edge_importance=False,
+        temporal_kernel_size=None,
+        strategy="uniform",
+        max_hops=8,
+        device="cuda:0",
     ):
         super().__init__()
         self.device = device
@@ -235,8 +255,8 @@ class FlowNet(nn.Module):
                 temporal_kernel_size = T // 2 + 1
             # 2. K FlowStep
             for k in range(K):
-                last = (k == K - 1)
-                first = (k == 0)
+                last = k == K - 1
+                first = k == 0
                 self.layers.append(
                     FlowStep(
                         in_channels=C,
@@ -279,22 +299,22 @@ class FlowNet(nn.Module):
 
 class STG_NF(nn.Module):
     def __init__(
-            self,
-            pose_shape,
-            hidden_channels,
-            K,
-            L,
-            actnorm_scale,
-            flow_permutation,
-            flow_coupling,
-            LU_decomposed,
-            learn_top,
-            R=0,
-            edge_importance=False,
-            temporal_kernel_size=None,
-            strategy='uniform',
-            max_hops=8,
-            device='cuda:0'
+        self,
+        pose_shape,
+        hidden_channels,
+        K,
+        L,
+        actnorm_scale,
+        flow_permutation,
+        flow_coupling,
+        LU_decomposed,
+        learn_top,
+        R=0,
+        edge_importance=False,
+        temporal_kernel_size=None,
+        strategy="uniform",
+        max_hops=8,
+        device="cuda:0",
     ):
         super().__init__()
         self.flow = FlowNet(
@@ -335,24 +355,49 @@ class STG_NF(nn.Module):
             "prior_h_normal",
             torch.concat(
                 (
-                    torch.ones([self.flow.output_shapes[-1][1], self.flow.output_shapes[-1][2],
-                                self.flow.output_shapes[-1][3]]) * self.R,
-
-                    torch.zeros([self.flow.output_shapes[-1][1], self.flow.output_shapes[-1][2],
-                                 self.flow.output_shapes[-1][3]]),
-                ), dim=0
-            ))
+                    torch.ones(
+                        [
+                            self.flow.output_shapes[-1][1],
+                            self.flow.output_shapes[-1][2],
+                            self.flow.output_shapes[-1][3],
+                        ]
+                    )
+                    * self.R,
+                    torch.zeros(
+                        [
+                            self.flow.output_shapes[-1][1],
+                            self.flow.output_shapes[-1][2],
+                            self.flow.output_shapes[-1][3],
+                        ]
+                    ),
+                ),
+                dim=0,
+            ),
+        )
         self.register_buffer(
             "prior_h_abnormal",
             torch.concat(
                 (
-                    torch.ones([self.flow.output_shapes[-1][1], self.flow.output_shapes[-1][2],
-                                self.flow.output_shapes[-1][3]]) * self.R * -1,
-
-                    torch.zeros([self.flow.output_shapes[-1][1], self.flow.output_shapes[-1][2],
-                                 self.flow.output_shapes[-1][3]]),
-                ), dim=0
-            ))
+                    torch.ones(
+                        [
+                            self.flow.output_shapes[-1][1],
+                            self.flow.output_shapes[-1][2],
+                            self.flow.output_shapes[-1][3],
+                        ]
+                    )
+                    * self.R
+                    * -1,
+                    torch.zeros(
+                        [
+                            self.flow.output_shapes[-1][1],
+                            self.flow.output_shapes[-1][2],
+                            self.flow.output_shapes[-1][3],
+                        ]
+                    ),
+                ),
+                dim=0,
+            ),
+        )
 
     def prior(self, data, label=None):
         if data is not None:
@@ -371,7 +416,9 @@ class STG_NF(nn.Module):
 
         return split_feature(h, "split")
 
-    def forward(self, x=None, z=None, temperature=None, reverse=False, label=None, score=1):
+    def forward(
+        self, x=None, z=None, temperature=None, reverse=False, label=None, score=1
+    ):
         if reverse:
             return self.reverse_flow(z, temperature)
         else:

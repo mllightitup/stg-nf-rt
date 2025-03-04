@@ -1,6 +1,5 @@
-"""
-The based unit of graph convolutional networks., based on awesome previous work by https://github.com/yysijie/st-gcn
-"""
+# The based unit of graph convolutional networks., based on awesome previous work by https://github.com/yysijie/st-gcn
+
 
 import torch
 import torch.nn as nn
@@ -21,10 +20,7 @@ class InvConvTemporalGraphical(nn.Module):
             :math:`V` is the number of graph nodes.
     """
 
-    def __init__(self,
-                 in_channels,
-                 LU_decomposed,
-                 kernel_size):
+    def __init__(self, in_channels, LU_decomposed, kernel_size):
         super().__init__()
 
         self.kernel_size = kernel_size

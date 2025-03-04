@@ -1,6 +1,5 @@
-"""
-STG-NF modules, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
-"""
+# STG-NF modules, based on awesome previous work by https://github.com/y0ast/Glow-PyTorch
+
 
 import math
 import torch
@@ -52,7 +51,7 @@ def unsqueeze2d(input, factor):
     if factor == 1:
         return input
 
-    factor2 = factor ** 2
+    factor2 = factor**2
 
     B, C, T, V = input.size()
 
@@ -176,14 +175,14 @@ class LinearZeros(nn.Module):
 
 class Conv2d(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            out_channels,
-            kernel_size=(3, 1),
-            stride=(1, 1),
-            padding="same",
-            do_actnorm=True,
-            weight_std=0.05,
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=(3, 1),
+        stride=(1, 1),
+        padding="same",
+        do_actnorm=True,
+        weight_std=0.05,
     ):
         super().__init__()
 
@@ -220,13 +219,13 @@ class Conv2d(nn.Module):
 
 class Conv2dZeros(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            out_channels,
-            kernel_size=(3, 1),
-            stride=(1, 1),
-            padding="same",
-            logscale_factor=3,
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=(3, 1),
+        stride=(1, 1),
+        padding="same",
+        logscale_factor=3,
     ):
         super().__init__()
 
@@ -358,7 +357,9 @@ class InvertibleConv1x1(nn.Module):
 
             lower = self.lower * self.l_mask + self.eye
 
-            u = self.upper * self.l_mask.transpose(0, 1).contiguous().to(self.upper.device)
+            u = self.upper * self.l_mask.transpose(0, 1).contiguous().to(
+                self.upper.device
+            )
             u += torch.diag(self.sign_s * torch.exp(self.log_s))
 
             dlogdet = torch.sum(self.log_s) * h * w
@@ -372,7 +373,9 @@ class InvertibleConv1x1(nn.Module):
             else:
                 weight = torch.matmul(self.p, torch.matmul(lower, u))
 
-        return weight.view(self.w_shape[0], self.w_shape[1], 1, 1).to(input.device), dlogdet.to(input.device)
+        return weight.view(self.w_shape[0], self.w_shape[1], 1, 1).to(
+            input.device
+        ), dlogdet.to(input.device)
 
     def forward(self, input, logdet=None, reverse=False):
         """
