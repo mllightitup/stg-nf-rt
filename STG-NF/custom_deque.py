@@ -1,11 +1,7 @@
-# ----------------------------------------------------
-# Класс TrackHistory хранит буфер последних k кадров
-# (keypoints + их confidence).
-# ----------------------------------------------------
 import torch
 
 
-class TrackHistory:
+class PersonBuffer:
     def __init__(self, max_history, num_keypoints, device, dims=3):
         self.kps = torch.zeros((max_history, num_keypoints, dims), device=device)
         self.conf = torch.zeros(max_history, device=device)
@@ -31,12 +27,7 @@ class TrackHistory:
         return kps_ordered, conf_ordered
 
 
-# ----------------------------------------------------
-# Класс Tracker регистрирует текущие объекты и обновляет
-# их историю. При необходимости конвертируем историю
-# в общий тензор (build_tensor).
-# ----------------------------------------------------
-class Tracker:
+class BufferManager:
     def __init__(self, max_history, device):
         self.max_history = max_history
         self.device = device
@@ -53,7 +44,7 @@ class Tracker:
             if tid not in self.track_histories:
                 # num_keypoints, dims
                 num_kp, dims = kp.shape
-                self.track_histories[tid] = TrackHistory(
+                self.track_histories[tid] = PersonBuffer(
                     self.max_history, num_kp, self.device, dims
                 )
             self.track_histories[tid].add(kp, c)

@@ -35,10 +35,10 @@ def main():
     args.ckpt_dir = create_exp_dirs(args.exp_dir, dirmap=args.dataset)
 
     args.dataset = "ShanghaiTech"
-
-    args.checkpoint = (
-        r"data/exp_dir/ShanghaiTech/Mar04_2343/Mar04_2345__checkpoint.pth.tar"
-    )
+    args.seg_stride = 1
+    # args.checkpoint = (
+    #     r"data/exp_dir/ShanghaiTech/Mar05_0016/Mar05_0018__checkpoint.pth.tar"
+    # )
 
     pretrained = vars(args).get("checkpoint", None)
     dataset, loader = get_dataset_and_loader(

@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torch.nn.functional as F
+
 from tqdm import tqdm
 from ultralytics import RTDETR, YOLO
 from transformers import AutoProcessor, VitPoseForPoseEstimation
@@ -15,7 +16,7 @@ import torch
 
 from models.STG_NF.model_pose import STG_NF
 from models.training import InferenceSTG
-from custom_deque import Tracker
+from custom_deque import BufferManager
 from args import init_parser, init_sub_args
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -40,7 +41,7 @@ else:
 args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
-args.checkpoint = r"checkpoints\Mar04_1337__checkpoint.pth.tar"  # trained on rtdert + vitpose based datasate layout
+args.checkpoint = r"checkpoints\Mar04_2345__checkpoint.pth.tar"  # trained on rtdert + vitpose based datasate layout
 
 pretrained = vars(args).get("checkpoint", None)
 
@@ -62,10 +63,10 @@ model_args = {
     "device": args.device,
 }
 
-model = STG_NF(**model_args)
-inference = InferenceSTG(args, model)
+normality_model = STG_NF(**model_args)
+stg_inference = InferenceSTG(args, normality_model)
 
-inference.load_checkpoint(pretrained)
+stg_inference.load_checkpoint(pretrained)
 
 
 ORDER = torch.tensor(
@@ -105,7 +106,7 @@ def normalize_pose(pose_data, symm_range=False):
 # ----------------------------------------------------
 # YOLO/RTDETR + ViTPose
 # ----------------------------------------------------
-yolo_model = YOLO(r"C:\Users\Grishin\PycharmProjects\stg-nf-rt\yolo_models\yolo12n.pt")
+yolo_model = RTDETR(r"../detector_models/rtdetr-x.engine")
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
@@ -116,7 +117,7 @@ pose_processor = AutoProcessor.from_pretrained(
 )
 
 # Инициализируем наш трекер:
-tracker = Tracker(max_history=max_history, device=device)
+buffer = BufferManager(max_history=max_history, device=device)
 
 
 # ----------------------------------------------------
@@ -196,8 +197,8 @@ def postprocess_keypoints(
 def value_to_color(value):
     # Нормализуем значение в диапазон [0, 1]
     min_value, max_value = (
-        -10,
-        0,
+        -3,
+        -1,
     )  # Например, предположим, что минимальные и максимальные значения value в этом диапазоне
     normalized_value = np.clip((value - min_value) / (max_value - min_value), 0, 1)
 
@@ -307,7 +308,7 @@ def process_frame(frame: np.ndarray, frame_index: int):
 
     tids_tensor = torch.from_numpy(person_ids).long().to(device)
     b_conf_tensor = torch.from_numpy(person_det[:, 4]).float().to(device)
-    tracker.update(tids_tensor, detections_keypoints, b_conf_tensor)
+    buffer.update(tids_tensor, detections_keypoints, b_conf_tensor)
 
     # Данные для JSON
     frame_data = {}
@@ -318,12 +319,12 @@ def process_frame(frame: np.ndarray, frame_index: int):
 
     normality_scores = None
     if frame_index >= max_history - 1:
-        pose_tensor, conf_tensor, union_ids = tracker.build_tensor()
+        pose_tensor, conf_tensor, union_ids = buffer.build_tensor()
         if pose_tensor is not None:
             kps_coco18 = keypoints17_to_coco18(pose_tensor)
             kps_norm = normalize_pose(kps_coco18)
             kps_final = kps_norm.permute(0, 3, 1, 2)
-            normality_scores = inference.test_real_time(kps_final, conf_tensor)
+            normality_scores = stg_inference.test_real_time(kps_final, conf_tensor)
 
             # Формируем map track_id → normality_score
             track2normal = {}
