@@ -1,0 +1,42 @@
+[project]
+name = "pythonproject8"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "filterpy>=1.4.5",
+    "ftfy>=6.3.1",
+    "gdown>=5.2.0",
+    "lap>=0.5.12",
+    "loguru>=0.7.3",
+    "notebook>=7.3.2",
+    "opencv-python>=4.11.0.86",
+    "pandas>=2.2.3",
+    "pip==25.0.1",
+    "psutil>=7.0.0",
+    "pyyaml>=6.0.2",
+    "regex>=2024.11.6",
+    "scikit-learn>=1.6.1",
+    "supervision>=0.25.1",
+    "tensorrt==10.8.0.43",
+    "tensorrt-dispatch==10.8.0.43",
+    "tensorrt-lean==10.8.0.43",
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "torchvision>=0.21.0",
+    "transformers>=4.49.0",
+    "triton-windows==3.2.0.post15",
+    "ultralytics>=8.3.92",
+    "ultralytics-thop>=2.0.14",
+]
+
+# Для запуска кода с REID
+# uv pip install https://github.com/mikel-brostrom/ultralytics.git --upgrade --no-deps
+
+# Для запуска обычного кода
+# uv pip install ultralytics --upgrade --no-deps
+
+[tool.uv.sources]
+tensorrt = { path = "../../../../Program Files/NVIDIA GPU Computing Toolkit/TensorRT-10.8.0.43/python/tensorrt-10.8.0.43-cp312-none-win_amd64.whl" }
+tensorrt-dispatch = { path = "../../../../Program Files/NVIDIA GPU Computing Toolkit/TensorRT-10.8.0.43/python/tensorrt_dispatch-10.8.0.43-cp312-none-win_amd64.whl" }
+tensorrt-lean = { path = "../../../../Program Files/NVIDIA GPU Computing Toolkit/TensorRT-10.8.0.43/python/tensorrt_lean-10.8.0.43-cp312-none-win_amd64.whl" }
