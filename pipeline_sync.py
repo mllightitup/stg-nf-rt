@@ -43,7 +43,7 @@ else:
 args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
-args.checkpoint = r"STG_NF/checkpoints/ShanghaiTech_85_9.tar"
+args.checkpoint = (r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar")
 
 pretrained = vars(args).get("checkpoint", None)
 
@@ -130,36 +130,36 @@ def normalize_pose(pose_data, symm_range=False):
 # ----------------------------------------------------
 # YOLO/RTDETR + ViTPose
 # ----------------------------------------------------
-yolo_model = RTDETR(r"detector_weights/rtdetr-x-old.engine")
+yolo_model = RTDETR(r"detector_weights/rtdetr-x.pt") # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
-    pose_checkpoint, torch_dtype=dtype, local_files_only=True
+    pose_checkpoint, torch_dtype=dtype
 ).to(device)
 pose_processor = AutoProcessor.from_pretrained(
-    pose_checkpoint, use_fast=False, local_files_only=True
+    pose_checkpoint, use_fast=False
 )
 
 # Compile pose model
-compiled_pose_model = torch.compile(
-    pose_model, fullgraph=True, mode="reduce-overhead", dynamic=True
-)
+# compiled_pose_model = torch.compile(
+#     pose_model, fullgraph=True, mode="reduce-overhead", dynamic=True
+# )
 
-# Warm-up model
-dummy_batch_size = 1
-dummy_pixel_values = torch.zeros(
-    (dummy_batch_size, 3, pose_processor.size["height"], pose_processor.size["width"]),
-    dtype=dtype,
-    device=device,
-)
-dummy_inputs = {
-    "pixel_values": dummy_pixel_values,
-    "dataset_index": torch.zeros(dummy_batch_size, dtype=torch.int64, device=device),
-}
+# # Warm-up model
+# dummy_batch_size = 1
+# dummy_pixel_values = torch.zeros(
+#     (dummy_batch_size, 3, pose_processor.size["height"], pose_processor.size["width"]),
+#     dtype=dtype,
+#     device=device,
+# )
+# dummy_inputs = {
+#     "pixel_values": dummy_pixel_values,
+#     "dataset_index": torch.zeros(dummy_batch_size, dtype=torch.int64, device=device),
+# }
 
-for _ in range(10):
-    with torch.no_grad():
-        compiled_pose_model(**dummy_inputs)
+# for _ in range(10):
+#     with torch.no_grad():
+#         compiled_pose_model(**dummy_inputs)
 
 
 # Инициализируем наш трекер:
@@ -241,16 +241,14 @@ def postprocess_keypoints(
 
 
 def value_to_color(value):
-    # Нормализуем значение в диапазон [0, 1]
     min_value, max_value = (
         -3,
         -1,
-    )  # Например, предположим, что минимальные и максимальные значения value в этом диапазоне
+    )
     normalized_value = np.clip((value - min_value) / (max_value - min_value), 0, 1)
 
-    # Используем normalized_value для создания цвета: красный - зеленый
-    red = int(normalized_value * 255)  # Чем меньше значение, тем краснее
-    green = int((1 - normalized_value) * 255)  # Чем больше значение, тем зеленее
+    red = int(normalized_value * 255)
+    green = int((1 - normalized_value) * 255)
     return 0, red, green  # Цвет в формате (B, G, R)
 
 
@@ -268,18 +266,15 @@ def visualize_output(
     kp = sv.KeyPoints(xy=keypoints.cpu().numpy(), confidence=scores.cpu().numpy())
     detections = sv.Detections(
         xyxy=boxes.cpu().numpy(),
-        # class_id=np.zeros(boxes.shape[0]),
     )
 
     annotated = image.copy()
 
     edge_annotator = sv.EdgeAnnotator(color=sv.Color.YELLOW, thickness=1)
     vertex_annotator = sv.VertexAnnotator(color=sv.Color.ROBOFLOW, radius=2)
-    # box_annotator = sv.BoxAnnotator(color=sv.Color.WHITE, thickness=2)
 
     annotated = edge_annotator.annotate(annotated, key_points=kp)
     annotated = vertex_annotator.annotate(annotated, key_points=kp)
-    # annotated = box_annotator.annotate(annotated, detections=detections)
 
     # Вывод normality_scores над боксами
     for i, box in enumerate(detections.xyxy):
@@ -344,19 +339,18 @@ def process_frame(frame: np.ndarray, frame_index: int):
     )
 
     with torch.no_grad():
-        start_compiled = time.perf_counter()
-        pose_outputs = compiled_pose_model(**inputs)
-        torch.cuda.synchronize()
-        compiled_time = time.perf_counter() - start_compiled
+        # start_compiled = time.perf_counter()
+        # pose_outputs = compiled_pose_model(**inputs)
+        # torch.cuda.synchronize()
+        # compiled_time = time.perf_counter() - start_compiled
 
-        start_normal = time.perf_counter()
+        #start_normal = time.perf_counter()
         pose_outputs = pose_model(**inputs)
-        torch.cuda.synchronize()
-        normal_time = time.perf_counter() - start_normal
+        #torch.cuda.synchronize()
+        #normal_time = time.perf_counter() - start_normal
 
-        print(
-            f"Compiled: {compiled_time * 1000} ms | Normal: {normal_time * 1000} ms | Diff Multiplier: {normal_time / compiled_time}"
-        )
+        #print(f"Compiled: {compiled_time * 1000} ms | Normal: {normal_time * 1000} ms | Diff Multiplier: {normal_time / compiled_time}")
+    
     keypoints, scores = postprocess_keypoints(
         pose_outputs.heatmaps, boxes_tensor, crop_height, crop_width
     )
@@ -430,7 +424,7 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
         # out.write(annotated_frame)
         cv2.imshow("Video", annotated_frame)
 
-        # Сохраняем JSON-данные
+        # Сохраняем JSON-данные для разметки всего датасета
         # for pid, data in frame_data.items():
         #     if pid not in global_results:
         #         global_results[pid] = {}
@@ -443,6 +437,7 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
     cap.release()
     cv2.destroyAllWindows()
 
+    # для разметки всего датасета
     # with open(json_output, "w") as f:
     #     # Для удобства ремапим ID в 1..N
     #     new_data = {
@@ -455,18 +450,16 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
 
 
 if __name__ == "__main__":
-    # start = time.perf_counter()
-    # main(
-    #     r"F:\shanghaitech\testing\videos\01_0014.mp4",
-    #     # "08_016_results.json",
-    # )
-    # print(f"Finished in {time.perf_counter() - start} seconds")
-    path_testing = r"F:\shanghaitech\testing\videos"
-    videos = os.listdir(path_testing)
-    for video in tqdm(videos):
-        if yolo_model.predictor is not None:
-            yolo_model.predictor.trackers[0].reset()
-        main(
-            path_testing + "\\" + video,
-            # rf"E:\shanghaitech\testing\rtdetr640_vitpose-plus-small\{video.split('.')[0]}_alphapose_tracked_person.json",
-        )
+    start = time.perf_counter()
+    main("test_video.mp4")
+    print(f"Finished in {time.perf_counter() - start} seconds")
+    
+    # path_testing = r"F:\shanghaitech\testing\videos"
+    # videos = os.listdir(path_testing)
+    # for video in tqdm(videos):
+    #     if yolo_model.predictor is not None:
+    #         yolo_model.predictor.trackers[0].reset()
+    #     main(
+    #         path_testing + "\\" + video,
+    #         # rf"E:\shanghaitech\testing\rtdetr640_vitpose-plus-small\{video.split('.')[0]}_alphapose_tracked_person.json",
+    #     )
