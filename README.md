@@ -21,6 +21,11 @@
 
 [Тут добавить ссылку на разметку]
 
+PC specs:
+- GPU: NVIDIA RTX 4070 12GB
+- CPU: AMD Ryzen 5 7500F
+
+
 На датасете **ShanghaiTech**:
 
 ![image](https://github.com/user-attachments/assets/5fa828b2-70de-4ee1-a937-2ce15d17fa6d)
