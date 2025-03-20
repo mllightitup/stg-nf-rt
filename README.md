@@ -33,3 +33,10 @@ PC specs:
 На датасете **ShanghaiTech-HR** (human related):
 
 ![image](https://github.com/user-attachments/assets/febd8787-bc93-4056-b5be-7c3feb93a651)
+
+## Визуализация
+
+https://github.com/user-attachments/assets/efa2e62e-fed2-4f6c-a066-cce76bad16e2
+
+
+
