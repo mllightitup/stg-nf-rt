@@ -48,7 +48,7 @@ args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
 args.checkpoint = (
-    r"STG_NF/data/exp_dir/ShanghaiTech/Mar15_2258/Mar15_2259__checkpoint.pth.tar"
+    r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar"
 )
 
 pretrained = vars(args).get("checkpoint", None)
@@ -123,14 +123,14 @@ yolo_model = RTDETR(r"detector_weights/rtdetr-x-old.engine")
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
-    pose_checkpoint, torch_dtype=dtype, local_files_only=True
+    pose_checkpoint, torch_dtype=dtype
 ).to(device)
 pose_processor = AutoProcessor.from_pretrained(
-    pose_checkpoint, use_fast=False, local_files_only=True
+    pose_checkpoint, use_fast=False
 )
 
 
-# Compile pose model
+# У меня лично это нормально не работает, хз что не так
 # compiled_pose_model = torch.compile(
 #     pose_model, fullgraph=True, mode="reduce-overhead", dynamic=True
 # )
@@ -231,7 +231,6 @@ def postprocess_keypoints(
 
 
 def value_to_color(value):
-    # Assume a value in the range [-3, -1]
     min_value, max_value = -3, -1
     normalized_value = np.clip((value - min_value) / (max_value - min_value), 0, 1)
     red = int(normalized_value * 255)
@@ -263,7 +262,6 @@ def visualize_output(
     annotated = edge_annotator.annotate(annotated, key_points=kp)
     annotated = vertex_annotator.annotate(annotated, key_points=kp)
 
-    # Draw normality scores on bounding boxes
     for i, box in enumerate(detections.xyxy):
         tid = int(person_ids[i])
         if tid in track2normal:
@@ -290,11 +288,6 @@ def visualize_output(
     return annotated
 
 
-# ------------------------------
-# Break the pipeline into sub-functions
-# ------------------------------
-
-
 def yolo_detect(frame):
     """Perform YOLO detection and return boxes, confs, class_ids, track_ids."""
     results = yolo_model.track(
@@ -303,9 +296,6 @@ def yolo_detect(frame):
         classes=[0],
         persist=True,
         half=True,
-        # conf=0.6,
-        # iou=0.6,
-        # tracker="bytetrack.yaml",
     )[0]
     boxes = results.boxes.xyxy.cpu().numpy()
     confs = results.boxes.conf.cpu().numpy()
@@ -498,17 +488,14 @@ async def scoring_task(pose_queue, output_queue):
         annotated_frame = frame
         if frame_id >= max_history - 1:
             result = run_stg_inference(buffer)
-            # print(result)
             if result is not None:
                 normality_scores, union_ids = result
-                # Compute minimum normality value using numpy
                 if normality_scores.size == 1:
                     min_val = normality_scores.item()
                 else:
                     min_val = np.min(normality_scores)
                 normality_history.append(min_val)
                 track2normal = {}
-                # print(union_ids.size())
                 if union_ids.size(dim=0) == 1:
                     track2normal[int(union_ids.item())] = float(normality_scores.item())
                 else:
@@ -525,11 +512,6 @@ async def scoring_task(pose_queue, output_queue):
             normality_history.append(val)
 
         await output_queue.put(annotated_frame)
-
-
-# ------------------------------
-# Function to create graph image
-# ------------------------------
 
 
 def create_graph_image(history, width, height):
@@ -781,12 +763,14 @@ async def async_main(input_source, output_path=None):
 
 
 def main():
-    video_path = r"01_0014.mp4"
+    video_path = r"test_video.mp4"
 
     start = time.time()
     asyncio.run(async_main(video_path))
     torch.cuda.synchronize()
     print("Time taken: ", time.time() - start)
+
+    # Для прохода по всей тестовой части датасета
     # path = r"F:\shanghaitech\testing\videos"
     # file_names = os.listdir(path)
     # for file_name in file_names:
