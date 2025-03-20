@@ -1,4 +1,6 @@
 ## Установка
+[TODO: cделать всё на `uv`]
+
 - `pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 --upgrade`
 - `pip install opencv-python ultralytics supervision transformers lap onnx>=1.12.0 onnxslim onnxruntime-gpu tensorrt --upgrade`
 
@@ -19,7 +21,7 @@
 - train - 330 видеороликов (274 515 кадров)
 - test - 107 видеороликов (42 883 кадров)
 
-[Тут добавить ссылку на разметку]
+[TODO: тут добавить ссылку на разметку]
 
 PC specs:
 - GPU: NVIDIA RTX 4070 12GB
@@ -35,7 +37,8 @@ PC specs:
 ![image](https://github.com/user-attachments/assets/febd8787-bc93-4056-b5be-7c3feb93a651)
 
 ## Визуализация
-[не работает видос, надо поправить]
+[TODO: не работает видос, надо поправить]
+
 https://github.com/user-attachments/assets/efa2e62e-fed2-4f6c-a066-cce76bad16e2
 
 
