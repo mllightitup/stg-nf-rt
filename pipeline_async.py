@@ -119,7 +119,7 @@ def normalize_pose(pose_data, symm_range=False):
 # ------------------------------
 # Prepare YOLO/RTDETR and ViTPose
 # ------------------------------
-yolo_model = RTDETR(r"detector_weights/rtdetr-x.pt") # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py)
+yolo_model = RTDETR(r"detector_weights/rtdetr-x.pt") # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
