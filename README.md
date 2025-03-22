@@ -37,7 +37,6 @@ PC specs:
 ![image](https://github.com/user-attachments/assets/febd8787-bc93-4056-b5be-7c3feb93a651)
 
 ## Визуализация
-[TODO: не работает видос, надо поправить]
 
 ![stg_test](https://github.com/user-attachments/assets/cfe1dae8-e4f3-41fe-920f-49e347b36baa)
 
