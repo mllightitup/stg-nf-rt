@@ -17,6 +17,13 @@ from STG_NF.models.STG_NF.model_pose import STG_NF
 from inferense_stg import InferenceSTG
 from buffer import BufferManager
 
+import torch_tensorrt
+
+detector_time = []
+vitpose_time = []
+stg_time = []
+
+print(torch_tensorrt.dtype)
 # ------------------------------
 # Set device and dtype
 # ------------------------------
@@ -47,9 +54,7 @@ else:
 args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
-args.checkpoint = (
-    r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar"
-)
+args.checkpoint = r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar"
 
 pretrained = vars(args).get("checkpoint", None)
 
@@ -78,6 +83,7 @@ model_args = {
 # Build and load the normality model
 # ------------------------------
 normality_model = STG_NF(**model_args).eval().to(device)
+# [N, 2, 24, 18]
 stg_inference = InferenceSTG(args, normality_model)
 stg_inference.load_checkpoint(pretrained)
 
@@ -119,16 +125,24 @@ def normalize_pose(pose_data, symm_range=False):
 # ------------------------------
 # Prepare YOLO/RTDETR and ViTPose
 # ------------------------------
-yolo_model = RTDETR(r"detector_weights/rtdetr-x.pt") # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
+yolo_model = RTDETR(
+    r"detector_weights/rtdetr-l.engine"
+)  # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
-    pose_checkpoint, torch_dtype=dtype
+    pose_checkpoint, torch_dtype=dtype, local_files_only=True
 ).to(device)
 pose_processor = AutoProcessor.from_pretrained(
-    pose_checkpoint, use_fast=False
+    pose_checkpoint, use_fast=False, local_files_only=True
 )
 
+pose_model_trt = (
+    torch.export.load("detector_weights/vitpose-plus-small.ep")
+    .module()
+    .to(device)
+    .half()
+)
 
 # У меня лично это нормально не работает, хз что не так
 # compiled_pose_model = torch.compile(
@@ -151,6 +165,17 @@ pose_processor = AutoProcessor.from_pretrained(
 #     with torch.no_grad():
 #         compiled_pose_model(**dummy_inputs)
 
+
+# image_tensor = torch.ones((512, 512, 3), device=device, dtype=torch.float32) * 255
+# max_num_persons: int = 30
+# start_time = time.time()
+# for i in range(max_num_persons):
+#     boxes_xyxy = torch.tensor(
+#         [[0, 0, 100, 100]] * (i + 1), device=device, dtype=self.dtype
+#     )
+#     self._run_pose_estimation_step(image_tensor, boxes_xyxy)
+# end_time = time.time()
+inputs = [torch.randn((1, 3, 224, 224)).cuda()]  # your inputs go here
 
 # Tracker
 buffer = BufferManager(max_history=max_history, device=device)
@@ -290,12 +315,14 @@ def visualize_output(
 
 def yolo_detect(frame):
     """Perform YOLO detection and return boxes, confs, class_ids, track_ids."""
+    start_time = time.perf_counter()
     results = yolo_model.track(
         frame,
         verbose=False,
         classes=[0],
         persist=True,
-        half=True,
+        # half=True,
+        tracker="bytetrack.yaml",
     )[0]
     boxes = results.boxes.xyxy.cpu().numpy()
     confs = results.boxes.conf.cpu().numpy()
@@ -305,11 +332,13 @@ def yolo_detect(frame):
         track_ids = results.boxes.id.cpu().numpy()
     else:
         track_ids = None
+    detector_time.append(time.perf_counter() - start_time)
     return boxes, confs, class_ids, track_ids
 
 
 def vitpose_infer(frame, boxes_xyxy, confs):
     """Perform pose inference on given frame and boxes."""
+    start = time.perf_counter()
     if boxes_xyxy.shape[0] == 0:
         return None, None
 
@@ -328,11 +357,24 @@ def vitpose_infer(frame, boxes_xyxy, confs):
         boxes_tensor.shape[0], dtype=torch.int64, device=device
     )
     with torch.no_grad():
-        outputs = pose_model(**inputs)
+        # start = time.time()
+        # outputs = pose_model(**inputs)
+        # torch.cuda.synchronize()
+        # end = time.time()
+        # print(inputs["pixel_values"].shape)
+        # start_trt = time.time()
+        outputs = pose_model_trt(inputs["pixel_values"])
+        # torch.cuda.synchronize()
+        # end_trt = time.time()
+        #
+        # print(
+        #     f"Normal: {(end - start) * 1000} | TRT: {(end_trt - start_trt) * 1000} | X: {(end - start) / (end_trt - start_trt)}"
+        # )
+        # print(outputs)
     keypoints, scores = postprocess_keypoints(
         outputs.heatmaps, boxes_tensor, crop_height, crop_width
     )
-
+    vitpose_time.append(time.perf_counter() - start)
     return (keypoints, scores, boxes_tensor)
 
 
@@ -340,6 +382,7 @@ def run_stg_inference(buffer_manager: BufferManager):
     """
     Build a tensor from the buffer and run STG_NF normality inference.
     """
+    start = time.perf_counter()
     pose_tensor, conf_tensor, union_ids = buffer_manager.build_tensor()
     if pose_tensor is None:
         return None
@@ -350,6 +393,7 @@ def run_stg_inference(buffer_manager: BufferManager):
     kps_final = kps_norm.permute(0, 3, 1, 2)
 
     scores = stg_inference.test_real_time(kps_final, conf_tensor)
+    stg_time.append(time.perf_counter() - start)
     return scores, union_ids
 
 
@@ -380,6 +424,7 @@ async def detection_task(frame_queue, detection_queue):
         await detection_queue.put(
             (frame, (boxes, confs, class_ids, track_ids), None, None)
         )
+        # print(f"D: {time.time()}")
 
 
 async def pose_task(detection_queue, pose_queue):
@@ -410,6 +455,7 @@ async def pose_task(detection_queue, pose_queue):
         )
         # keypoints_tuple = vitpose_infer(frame, valid_boxes, valid_confs)
         await pose_queue.put((frame, keypoints_tuple, valid_ids, valid_confs))
+        # print(f"V: {time.time()}")
 
 
 # async def scoring_task(pose_queue, output_queue):
@@ -467,7 +513,9 @@ async def pose_task(detection_queue, pose_queue):
 async def scoring_task(pose_queue, output_queue):
     global normality_history
     while True:
+        # print(pose_queue.qsize())
         frame, keypoints_tuple, valid_ids, valid_confs = await pose_queue.get()
+
         if frame is None:
             await output_queue.put(None)
             break
@@ -512,6 +560,7 @@ async def scoring_task(pose_queue, output_queue):
             normality_history.append(val)
 
         await output_queue.put(annotated_frame)
+        # (f"S: {time.time()}")
 
 
 def create_graph_image(history, width, height):
@@ -663,6 +712,7 @@ async def writer_task(
         )
     prev_time = time.time()
     while True:
+        # print(output_queue.qsize())
         frame = await output_queue.get()
         if frame is None:
             break
@@ -749,8 +799,8 @@ async def async_main(input_source, output_path=None):
         asyncio.create_task(
             writer_task(
                 output_queue,
-                display=True,
-                output_file="stg_test.avi",
+                display=False,
+                output_file="stg_test.mp4",
                 video_fps=int(fps_capture),
                 frame_width=frame_width,
                 frame_height=frame_height,
@@ -769,6 +819,45 @@ def main():
     asyncio.run(async_main(video_path))
     torch.cuda.synchronize()
     print("Time taken: ", time.time() - start)
+
+    print("sum", sum(detector_time), sum(vitpose_time), sum(stg_time))
+    # print(
+    #     "mean",
+    #     np.array(detector_time).mean(),
+    #     np.array(vitpose_time).mean(),
+    #     np.array(stg_time).mean(),
+    # )
+    # print(
+    #     "std",
+    #     np.array(detector_time).std(),
+    #     np.array(vitpose_time).std(),
+    #     np.array(stg_time).std(),
+    # )
+    # print(
+    #     "median", np.median(detector_time), np.median(vitpose_time), np.median(stg_time)
+    # )
+    # print(
+    #     "max",
+    #     np.array(detector_time).max(),
+    #     np.array(vitpose_time).max(),
+    #     np.array(stg_time).max(),
+    # )
+    # print(
+    #     "min",
+    #     np.array(detector_time).min(),
+    #     np.array(vitpose_time).min(),
+    #     np.array(stg_time).min(),
+    # )
+    # print(
+    #     "quantile",
+    #     np.quantile(detector_time, 0.9),
+    #     np.quantile(vitpose_time, 0.9),
+    #     np.quantile(stg_time, 0.9),
+    # )
+    # plt.plot(detector_time)
+    # plt.plot(vitpose_time)
+    # plt.plot(stg_time)
+    # plt.show()
 
     # Для прохода по всей тестовой части датасета
     # path = r"F:\shanghaitech\testing\videos"

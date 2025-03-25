@@ -1,10 +1,8 @@
-import os
 import time
 
 import torch
 import torchvision
 import torch.nn.functional as F
-from tqdm import tqdm
 
 from ultralytics import RTDETR
 from transformers import AutoProcessor, VitPoseForPoseEstimation
@@ -19,8 +17,11 @@ from STG_NF.args import init_sub_args, init_parser
 from STG_NF.models.STG_NF.model_pose import STG_NF
 from buffer import BufferManager
 from inferense_stg import InferenceSTG
+import torch_tensorrt
 
-torch.set_float32_matmul_precision("high")
+print(torch_tensorrt.dtype)
+torch_tensorrt.runtime.set_cudagraphs_mode(True)
+# torch.set_float32_matmul_precision("high")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 dtype = torch.float16
 
@@ -43,7 +44,7 @@ else:
 args, model_args = init_sub_args(args)
 
 args.dataset = "ShanghaiTech"
-args.checkpoint = (r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar")
+args.checkpoint = r"STG_NF/checkpoints/Mar15_2259__checkpoint.pth.tar"
 
 pretrained = vars(args).get("checkpoint", None)
 
@@ -130,16 +131,23 @@ def normalize_pose(pose_data, symm_range=False):
 # ----------------------------------------------------
 # YOLO/RTDETR + ViTPose
 # ----------------------------------------------------
-yolo_model = RTDETR(r"detector_weights/rtdetr-x.pt") # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
+yolo_model = RTDETR(
+    r"detector_weights/rtdetr-l.engine"
+)  # Для кратного ускорения нужно экспортировать модель в TensorRT (файл export_trt_yolo.py) и использовать после rtdetr-x.engine
 
 pose_checkpoint = "usyd-community/vitpose-plus-small"
 pose_model = VitPoseForPoseEstimation.from_pretrained(
-    pose_checkpoint, torch_dtype=dtype
+    pose_checkpoint, torch_dtype=dtype, local_files_only=True
 ).to(device)
 pose_processor = AutoProcessor.from_pretrained(
-    pose_checkpoint, use_fast=False
+    pose_checkpoint, use_fast=False, local_files_only=True
 )
-
+pose_model_trt = (
+    torch.export.load("detector_weights/vitpose-plus-small.ep")
+    .module()
+    .to(device)
+    .half()
+)
 # Compile pose model
 # compiled_pose_model = torch.compile(
 #     pose_model, fullgraph=True, mode="reduce-overhead", dynamic=True
@@ -304,7 +312,13 @@ def visualize_output(
 
 
 def process_frame(frame: np.ndarray, frame_index: int):
-    yolo_results = yolo_model.track(frame, verbose=False, classes=[0], persist=True)[0]
+    yolo_results = yolo_model.track(
+        frame,
+        verbose=False,
+        classes=[0],
+        persist=True,
+        tracker="bytetrack.yaml",
+    )[0]
     boxes = yolo_results.boxes.xyxy.cpu().numpy()
     confs = yolo_results.boxes.conf.cpu().numpy()
     classes = yolo_results.boxes.cls.cpu().numpy()
@@ -344,13 +358,14 @@ def process_frame(frame: np.ndarray, frame_index: int):
         # torch.cuda.synchronize()
         # compiled_time = time.perf_counter() - start_compiled
 
-        #start_normal = time.perf_counter()
-        pose_outputs = pose_model(**inputs)
-        #torch.cuda.synchronize()
-        #normal_time = time.perf_counter() - start_normal
+        # start_normal = time.perf_counter()
+        # pose_outputs = pose_model(**inputs)
+        pose_outputs = pose_model_trt(inputs["pixel_values"])
+        # torch.cuda.synchronize()
+        # normal_time = time.perf_counter() - start_normal
 
-        #print(f"Compiled: {compiled_time * 1000} ms | Normal: {normal_time * 1000} ms | Diff Multiplier: {normal_time / compiled_time}")
-    
+        # print(f"Compiled: {compiled_time * 1000} ms | Normal: {normal_time * 1000} ms | Diff Multiplier: {normal_time / compiled_time}")
+
     keypoints, scores = postprocess_keypoints(
         pose_outputs.heatmaps, boxes_tensor, crop_height, crop_width
     )
@@ -361,11 +376,11 @@ def process_frame(frame: np.ndarray, frame_index: int):
     buffer.update(tids_tensor, detections_keypoints, b_conf_tensor)
 
     # Данные для JSON
-    frame_data = {}
-    for i, pid in enumerate(person_ids):
-        kp_list = detections_keypoints[i].cpu().numpy().flatten().tolist()
-        box_conf = float(person_det[i, 4])
-        frame_data[int(pid)] = {"keypoints": kp_list, "score": box_conf}
+    # frame_data = {}
+    # for i, pid in enumerate(person_ids):
+    #     kp_list = detections_keypoints[i].cpu().numpy().flatten().tolist()
+    #     box_conf = float(person_det[i, 4])
+    #     frame_data[int(pid)] = {"keypoints": kp_list, "score": box_conf}
 
     normality_scores = None
     if frame_index >= max_history - 1:
@@ -395,9 +410,9 @@ def process_frame(frame: np.ndarray, frame_index: int):
                 person_ids,  # <-- пробрасываем
                 track2normal,  # <-- пробрасываем
             )
-            return annotated_frame, frame_data, normality_scores
+            return annotated_frame, normality_scores
 
-    return frame, frame_data, normality_scores
+    return frame, normality_scores
 
 
 def main(input_source, output_file="annotated_video.mp4", json_output="results.json"):
@@ -420,9 +435,9 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
         if not ret:
             break
 
-        annotated_frame, frame_data, normal_scores = process_frame(frame, frame_id)
+        annotated_frame, normal_scores = process_frame(frame, frame_id)
         # out.write(annotated_frame)
-        cv2.imshow("Video", annotated_frame)
+        # cv2.imshow("Video", annotated_frame)
 
         # Сохраняем JSON-данные для разметки всего датасета
         # for pid, data in frame_data.items():
@@ -431,8 +446,8 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
         #     global_results[pid][frame_id] = data
 
         frame_id += 1
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord("q"):
+        #     break
 
     cap.release()
     cv2.destroyAllWindows()
@@ -453,7 +468,7 @@ if __name__ == "__main__":
     start = time.perf_counter()
     main("test_video.mp4")
     print(f"Finished in {time.perf_counter() - start} seconds")
-    
+
     # path_testing = r"F:\shanghaitech\testing\videos"
     # videos = os.listdir(path_testing)
     # for video in tqdm(videos):

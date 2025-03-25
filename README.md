@@ -2,20 +2,33 @@
 
 - Создайте проект с .venv любым удобным способом [**python >=3.12 и <3.13**]
 ```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126 --upgrade
-pip install opencv-python ultralytics supervision transformers lap onnx>=1.12.0 onnxslim onnxruntime-gpu tensorrt --upgrade
+git clone -b new https://github.com/mllightitup/stg-nf-rt.git
+```
+```bash
+pip install uv
+```
+```bash
+uv sync
 ```
 
 
 ## Экспорт модели TensorRT
+Чтобы сильно ускорить модели **RTDETR** и **VITPOSE** экспортируйте их с помощью **TensorRT**.
+### RTDETR
+Запустите `export_trt_yolo.py`
 
-Чтобы сильно ускорить модель детектора(RTDETR или YOLO) можно её экспортировать с помощью `export_trt_yolo.py`.
+После успешного экспорта в папке `detector_weights` появится модель `rtdetr-x.engine`
 
-После успешного экспорта в папке `detector_weights` появится модель `rtdetr-x.engine"`
-
-В файлах `pipeline_async.py` | `pipeline_sync.py` нужно поменять свою строку на такую: 
+В файлах `pipeline_async.py` | `pipeline_sync.py` нужно поменять `.pt` на `.engine`: 
 
 `yolo_model = RTDETR(r"detector_weights/rtdetr-x.engine")`
+
+### VITPOSE
+Запустите `export_trt_vitpose.py`
+
+После успешного экспорта в папке `pose_weights` появится модель `vitpose-plus-small.ep`
+
+В файлах `pipeline_async.py` | `pipeline_sync.py` нужно поменять... [TODO]
 
 ## Результаты обучения STG-NF
 Датасет ShanghaiTech был размечен с помощью `pipeline_async.py` (с отключенным модулем STG-NF и с дополнительным модулем для разметки) со средней скоростью >24fps, то есть быстрее реал тайма. Точность можно сделать на несколько процентов выше, но в таком случае в realtime мы уже не укладываемся.

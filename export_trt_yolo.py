@@ -1,6 +1,4 @@
 from ultralytics import RTDETR
 
-model = RTDETR("detector_weights/rtdetr-x.pt")
-model.export(
-    format="engine", imgsz=640, dynamic=True, verbose=False, batch=8, half=True
-)
+model = RTDETR("detector_weights/rtdetr-l.pt")
+model.export(format="engine", dynamic=False, verbose=False, batch=1, half=True)
