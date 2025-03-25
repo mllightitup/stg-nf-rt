@@ -70,30 +70,6 @@ normality_model = STG_NF(**model_args).eval().to(device)
 stg_inference = InferenceSTG(args, normality_model)
 stg_inference.load_checkpoint(pretrained)
 
-# compiled_stg_nf_model = torch.compile(
-#     stg_inference.model, fullgraph=True, mode="reduce-overhead", dynamic=True
-# )
-#
-# # Прогрев модели (warm-up).
-# # В качестве примера возьмём batch_size=2. Первый размер - B.
-# dummy_batch_size = 2
-#
-# # Ваш samp: (B, 2, 24, 18)
-# dummy_samp = torch.zeros(
-#     (dummy_batch_size, 2, 24, 18), dtype=torch.float32, device=device
-# )
-# # label: (B,)
-# dummy_label = torch.ones((dummy_batch_size,), dtype=torch.float32, device=device)
-# # score: (B,)
-# dummy_score = torch.ones((dummy_batch_size,), dtype=torch.float32, device=device)
-#
-# for _ in range(10):
-#     with torch.no_grad():
-#         _, nll = compiled_stg_nf_model(dummy_samp, label=dummy_label, score=dummy_score)
-#
-# # Передаём скомпилированную модель в stg_inference:
-# stg_inference.model = compiled_stg_nf_model
-
 ORDER = torch.tensor(
     [0, 17, 6, 8, 10, 5, 7, 9, 12, 14, 16, 11, 13, 15, 2, 1, 4, 3],
     dtype=torch.long,
@@ -143,33 +119,11 @@ pose_processor = AutoProcessor.from_pretrained(
     pose_checkpoint, use_fast=False, local_files_only=True
 )
 pose_model_trt = (
-    torch.export.load("detector_weights/vitpose-plus-small.ep")
+    torch.export.load("pose_weights/vitpose-plus-small.ep")
     .module()
     .to(device)
     .half()
 )
-# Compile pose model
-# compiled_pose_model = torch.compile(
-#     pose_model, fullgraph=True, mode="reduce-overhead", dynamic=True
-# )
-
-# # Warm-up model
-# dummy_batch_size = 1
-# dummy_pixel_values = torch.zeros(
-#     (dummy_batch_size, 3, pose_processor.size["height"], pose_processor.size["width"]),
-#     dtype=dtype,
-#     device=device,
-# )
-# dummy_inputs = {
-#     "pixel_values": dummy_pixel_values,
-#     "dataset_index": torch.zeros(dummy_batch_size, dtype=torch.int64, device=device),
-# }
-
-# for _ in range(10):
-#     with torch.no_grad():
-#         compiled_pose_model(**dummy_inputs)
-
-
 # Инициализируем наш трекер:
 buffer = BufferManager(max_history=max_history, device=device)
 
@@ -353,18 +307,7 @@ def process_frame(frame: np.ndarray, frame_index: int):
     )
 
     with torch.no_grad():
-        # start_compiled = time.perf_counter()
-        # pose_outputs = compiled_pose_model(**inputs)
-        # torch.cuda.synchronize()
-        # compiled_time = time.perf_counter() - start_compiled
-
-        # start_normal = time.perf_counter()
-        # pose_outputs = pose_model(**inputs)
         pose_outputs = pose_model_trt(inputs["pixel_values"])
-        # torch.cuda.synchronize()
-        # normal_time = time.perf_counter() - start_normal
-
-        # print(f"Compiled: {compiled_time * 1000} ms | Normal: {normal_time * 1000} ms | Diff Multiplier: {normal_time / compiled_time}")
 
     keypoints, scores = postprocess_keypoints(
         pose_outputs.heatmaps, boxes_tensor, crop_height, crop_width
@@ -374,13 +317,6 @@ def process_frame(frame: np.ndarray, frame_index: int):
     tids_tensor = torch.from_numpy(person_ids).long().to(device)
     b_conf_tensor = torch.from_numpy(person_det[:, 4]).float().to(device)
     buffer.update(tids_tensor, detections_keypoints, b_conf_tensor)
-
-    # Данные для JSON
-    # frame_data = {}
-    # for i, pid in enumerate(person_ids):
-    #     kp_list = detections_keypoints[i].cpu().numpy().flatten().tolist()
-    #     box_conf = float(person_det[i, 4])
-    #     frame_data[int(pid)] = {"keypoints": kp_list, "score": box_conf}
 
     normality_scores = None
     if frame_index >= max_history - 1:
@@ -393,7 +329,6 @@ def process_frame(frame: np.ndarray, frame_index: int):
 
             # Формируем map track_id → normality_score
             track2normal = {}
-            # print(normality_scores)
             if union_ids.shape[0] == 1:
                 # Всего один трек
                 track2normal[int(union_ids.item())] = float(normality_scores.item())
@@ -421,7 +356,6 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
         print("Error opening video stream or file")
         return
 
-    # global_results = {}
     frame_id = 0
 
     # width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -439,29 +373,13 @@ def main(input_source, output_file="annotated_video.mp4", json_output="results.j
         # out.write(annotated_frame)
         # cv2.imshow("Video", annotated_frame)
 
-        # Сохраняем JSON-данные для разметки всего датасета
-        # for pid, data in frame_data.items():
-        #     if pid not in global_results:
-        #         global_results[pid] = {}
-        #     global_results[pid][frame_id] = data
-
         frame_id += 1
+        # TODO: Визуализация замедляет пайплайн, сделать это if display: и также для записи в файл
         # if cv2.waitKey(1) & 0xFF == ord("q"):
         #     break
 
     cap.release()
     cv2.destroyAllWindows()
-
-    # для разметки всего датасета
-    # with open(json_output, "w") as f:
-    #     # Для удобства ремапим ID в 1..N
-    #     new_data = {
-    #         new_key: global_results[old_key]
-    #         for new_key, old_key in enumerate(sorted(global_results), start=1)
-    #     }
-    #     json.dump(new_data, f)
-    #
-    # print("JSON results saved to:", json_output)
 
 
 if __name__ == "__main__":
