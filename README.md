@@ -3,7 +3,7 @@
 - Cleanup STG-NF
 - STG-NF compile
 - Найти что не так в `pipeline_sync.py` и почему он немного медленее
-
+- Унифицировать `pipeline_sync.py` и `pipeline_async.py`
 ## Установка
 
 - Создайте проект с .venv любым удобным способом [**python >=3.12 и <3.13**]
