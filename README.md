@@ -54,8 +54,7 @@ PC specs:
 
 ## Визуализация
 
-![stg_test](https://github.com/user-attachments/assets/cfe1dae8-e4f3-41fe-920f-49e347b36baa)
-
+![stg_test (1)](https://github.com/user-attachments/assets/10eb2b88-5c29-4d60-90f0-d3c546cb465c)
 
 
 
