@@ -1,3 +1,9 @@
+## TODO
+- Refactor(аргументы для запуска скиптов --input --output --use-trt-detector --use-trt-pose ...)
+- Cleanup STG-NF
+- STG-NF compile
+- Найти что не так в `pipeline_sync.py` и почему он немного медленее
+
 ## Установка
 
 - Создайте проект с .venv любым удобным способом [**python >=3.12 и <3.13**]
