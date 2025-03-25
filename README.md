@@ -14,7 +14,7 @@ git clone -b new https://github.com/mllightitup/stg-nf-rt.git
 pip install uv
 ```
 ```bash
-uv sync
+uv pip install . или uv sync
 ```
 
 
