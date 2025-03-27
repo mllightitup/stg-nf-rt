@@ -32,7 +32,9 @@ class BufferManager:
         self.max_history = max_history
         self.device = device
         self.track_histories = {}  # track_id -> TrackHistory
+        self.tmp_histories = {}
         self.frame_counter = 0
+        self.built_tensors = ()
 
     def update(self, tids, kps, confs):
         """
@@ -40,22 +42,36 @@ class BufferManager:
         kps: (N, num_keypoints, 3)
         confs: (N,) confidence значений bbox или любых других
         """
+        self.tmp_histories = {} # буфер для тех, кого видим в текущем кадре
+        self.built_tensors = (None, None, None)
         tid_list = tids.tolist()
         for tid, kp, c in zip(tid_list, kps, confs):
             if tid not in self.track_histories:
                 # num_keypoints, dims
                 num_kp, dims = kp.shape
-                self.track_histories[tid] = PersonBuffer(
+                self.tmp_histories[tid] = PersonBuffer(
                     self.max_history, num_kp, self.device, dims
                 )
-            self.track_histories[tid].add(kp, c)
+            else:
+               self.tmp_histories[tid] =  self.track_histories[tid]
+            self.tmp_histories[tid].add(kp, c)
+            
+            if self.tmp_histories[tid].is_full():  # собираем полные патчи кадров для built_tensors
+                kps_ord, conf_ord = self.tmp_histories[tid].get_ordered_history()
+                valid_kps.append(kps_ord)
+                valid_conf.append(conf_ord)
+                valid_ids.append(tid)
+
+        if valid_kps:
+            tensor_kps = torch.stack(valid_kps, dim=0)  # (M, max_history, num_keypoints, 3)
+            tensor_conf = torch.stack(valid_conf, dim=0)  # (M, max_history)
+            union_ids = torch.tensor(valid_ids, dtype=torch.int64, device=self.device)
+            self.built_tensors = (tensor_kps, tensor_conf, union_ids)
 
         # Удаляем из трекера тех, кого не видим в текущем кадре
-        self.track_histories = {
-            tid: hist for tid, hist in self.track_histories.items() if tid in tid_list
-        }
-
-    def build_tensor(self):
+        self.track_histories = self.tmp_histories
+    
+    def build_tensor_deprecated(self):
         """
         Возвращает:
           - (M, max_history, num_keypoints, 3) keypoints
