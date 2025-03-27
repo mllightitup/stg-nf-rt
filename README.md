@@ -1,25 +1,67 @@
-### Установка и зависимости
+## TODO
+- Refactor(аргументы для запуска скиптов --input --output --use-trt-detector --use-trt-pose ...)
+- Cleanup STG-NF
+- STG-NF compile
+- Найти что не так в `pipeline_sync.py` и почему он немного медленее
+- Унифицировать `pipeline_sync.py` и `pipeline_async.py`
+## Установка
 
-Установка под чистый/пустой virtualenv для Windows 10/11 и python 3.12.9
+- Создайте проект с .venv любым удобным способом [**python >=3.12 и <3.13**]
+```bash
+git clone -b new https://github.com/mllightitup/stg-nf-rt.git
+```
+```bash
+pip install uv
+```
+```bash
+uv pip install . или uv sync
+```
 
-Сначала обновляем/устанавливани базовые библиотеки
-- `python3 -m pip install --upgrade pip`
-- `python3 -m pip install wheel`?
-- `pip install setuptools packaging --upgrade`
 
-На всякий случай удаляем кэш предыдущих установок
-- `pip cache remove "tensorrt*"`
+## Экспорт модели TensorRT
+Чтобы сильно ускорить модели **RTDETR** и **VITPOSE** экспортируйте их с помощью **TensorRT**.
+### RTDETR
+Запустите `export_trt_yolo.py`
 
-Замените путь до установки TensorRT.
-Эти библиотеки лежат по пути(пример):
+После успешного экспорта в папке `detector_weights` появится модель `rtdetr-x.engine`
 
-`C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT-10.8.0.43\python`
+В файлах `pipeline_async.py` | `pipeline_sync.py` нужно поменять `.pt` на `.engine`: 
 
-- `pip install --upgrade "ВАШ_ПУТЬ\tensorrt-10.8.0.43-cp312-none-win_amd64.whl" ВАШ_ПУТЬ\tensorrt_lean-10.8.0.43-cp312-none-win_amd64.whl ВАШ_ПУТЬ\tensorrt_dispatch-10.8.0.43-cp312-none-win_amd64.whl`
+`yolo_model = RTDETR(r"detector_weights/rtdetr-x.engine")`
 
-Код тестировался на  `torch-2.6.0+cu126` `torchaudio-2.6.0+cu126` `torchvision-0.21.0+cu126`
-- `pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126`
+### VITPOSE
+Запустите `export_trt_vitpose.py`
 
-`pip install git+https://github.com/mikel-brostrom/boxmot.git git+https://github.com/mikel-brostrom/ultralytics.git --no-deps`
+После успешного экспорта в папке `pose_weights` появится модель `vitpose-plus-small.ep`
 
-`pip install tqdm transformers supervision opencv-python scipy scikit-learn matplotlib loguru pandas gdown ftfy lap filterpy thop psutil --upgrade`
+В файлах `pipeline_async.py` | `pipeline_sync.py` нужно поменять... [TODO]
+
+## Результаты обучения STG-NF
+Датасет ShanghaiTech был размечен с помощью `pipeline_async.py` (с отключенным модулем STG-NF и с дополнительным модулем для разметки) со средней скоростью >24fps, то есть быстрее реал тайма. Точность можно сделать на несколько процентов выше, но в таком случае в realtime мы уже не укладываемся.
+
+Были размечены полность train/test сеты:
+- train - 330 видеороликов (274 515 кадров)
+- test - 107 видеороликов (42 883 кадров)
+
+[TODO: тут добавить ссылку на разметку]
+
+PC specs:
+- GPU: NVIDIA RTX 4070 12GB
+- CPU: AMD Ryzen 5 7500F
+
+
+На датасете **ShanghaiTech**:
+
+![image](https://github.com/user-attachments/assets/5fa828b2-70de-4ee1-a937-2ce15d17fa6d)
+
+На датасете **ShanghaiTech-HR** (human related):
+
+![image](https://github.com/user-attachments/assets/febd8787-bc93-4056-b5be-7c3feb93a651)
+
+## Визуализация
+
+![stg_test (1)](https://github.com/user-attachments/assets/10eb2b88-5c29-4d60-90f0-d3c546cb465c)
+
+
+
+
