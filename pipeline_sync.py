@@ -320,7 +320,7 @@ def process_frame(frame: np.ndarray, frame_index: int):
 
     normality_scores = None
     if frame_index >= max_history - 1:
-        pose_tensor, conf_tensor, union_ids = buffer.build_tensor()
+        pose_tensor, conf_tensor, union_ids = buffer.built_tensors
         if pose_tensor is not None:
             kps_coco18 = keypoints17_to_coco18(pose_tensor)
             kps_norm = normalize_pose(kps_coco18)
