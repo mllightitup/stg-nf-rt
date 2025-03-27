@@ -44,6 +44,9 @@ class BufferManager:
         """
         self.tmp_histories = {} # буфер для тех, кого видим в текущем кадре
         self.built_tensors = (None, None, None)
+        valid_kps = []
+        valid_conf = []
+        valid_ids = []
         tid_list = tids.tolist()
         for tid, kp, c in zip(tid_list, kps, confs):
             if tid not in self.track_histories:
