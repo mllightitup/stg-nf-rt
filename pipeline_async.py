@@ -329,7 +329,7 @@ def run_stg_inference(buffer_manager: BufferManager):
     """
     Build a tensor from the buffer and run STG_NF normality inference.
     """
-    pose_tensor, conf_tensor, union_ids = buffer_manager.build_tensor()
+    pose_tensor, conf_tensor, union_ids = buffer_manager.built_tensors
     if pose_tensor is None:
         return None
 
